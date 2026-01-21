@@ -1,10 +1,11 @@
-pipeline {
+ pipeline {
   agent any
 
   stages {
     stage('Checkout') {
       steps {
-        git 'https://github.com/Mrpraviya/IMS_devops.git'
+        git branch: 'main',
+            url: 'https://github.com/Mrpraviya/IMS_devops.git'
       }
     }
 
@@ -32,8 +33,10 @@ pipeline {
 
     stage('Deploy') {
       steps {
-        sh 'docker-compose down && docker-compose up -d'
+        sh 'docker-compose down || true'
+        sh 'docker-compose up -d'
       }
     }
   }
 }
+
