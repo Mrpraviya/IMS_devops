@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     tools {
-        nodejs "nodejs"  // Assuming you configured NodeJS in Jenkins
+        nodejs "nodejs"  // This must match the name you configured in Jenkins Tools
     }
     
     stages {
@@ -28,18 +28,30 @@ pipeline {
         
         stage('Docker Build & Push') {
             steps {
-                // These will fail if Docker is not installed
-                sh 'docker build -t sandeeptha/inventory-frontend ./frontend || echo "Docker not available, skipping build"'
-                sh 'docker build -t sandeeptha/inventory-backend ./backend || echo "Docker not available, skipping build"'
-                sh 'docker push sandeeptha/inventory-frontend || echo "Docker not available, skipping push"'
-                sh 'docker push sandeeptha/inventory-backend || echo "Docker not available, skipping push"'
+                // These require Docker to be installed in Jenkins container
+                sh '''
+                    if command -v docker &> /dev/null; then
+                        docker build -t sandeeptha/inventory-frontend ./frontend
+                        docker build -t sandeeptha/inventory-backend ./backend
+                        docker push sandeeptha/inventory-frontend || echo "Login to Docker Hub required"
+                        docker push sandeeptha/inventory-backend || echo "Login to Docker Hub required"
+                    else
+                        echo "Docker not available. Skipping Docker build stage."
+                    fi
+                '''
             }
         }
         
         stage('Deploy') {
             steps {
-                sh 'docker-compose down || true'
-                sh 'docker-compose up -d || echo "Docker compose not available"'
+                sh '''
+                    if command -v docker-compose &> /dev/null; then
+                        docker-compose down || true
+                        docker-compose up -d
+                    else
+                        echo "Docker-compose not available. Skipping deployment."
+                    fi
+                '''
             }
         }
     }
