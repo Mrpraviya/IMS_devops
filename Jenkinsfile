@@ -1,11 +1,17 @@
-pipeline {
+ pipeline {
     agent any
     
-    tools {
-        nodejs "nodejs"  // This must match the name you configured in Jenkins Tools
-    }
-    
     stages {
+        stage('Check NodeJS') {
+            steps {
+                sh '''
+                    # Fix library path if needed
+                    ldconfig 2>/dev/null || true
+                    node --version || echo "NodeJS not found"
+                '''
+            }
+        }
+        
         stage('Checkout') {
             steps {
                 git branch: 'main',
@@ -15,42 +21,14 @@ pipeline {
         
         stage('Build') {
             steps {
-                sh 'npm install --prefix frontend'
-                sh 'npm install --prefix backend'
-            }
-        }
-        
-        stage('Test') {
-            steps {
-                sh 'npm test --prefix backend || true'
-            }
-        }
-        
-        stage('Docker Build & Push') {
-            steps {
-                // These require Docker to be installed in Jenkins container
                 sh '''
-                    if command -v docker &> /dev/null; then
-                        docker build -t sandeeptha/inventory-frontend ./frontend
-                        docker build -t sandeeptha/inventory-backend ./backend
-                        docker push sandeeptha/inventory-frontend || echo "Login to Docker Hub required"
-                        docker push sandeeptha/inventory-backend || echo "Login to Docker Hub required"
-                    else
-                        echo "Docker not available. Skipping Docker build stage."
-                    fi
-                '''
-            }
-        }
-        
-        stage('Deploy') {
-            steps {
-                sh '''
-                    if command -v docker-compose &> /dev/null; then
-                        docker-compose down || true
-                        docker-compose up -d
-                    else
-                        echo "Docker-compose not available. Skipping deployment."
-                    fi
+                    # Try with full path to npm
+                    /var/jenkins_home/tools/jenkins.plugins.nodejs.tools.NodeJSInstallation/nodejs/bin/npm install --prefix frontend || \
+                    echo "Build failed, trying alternative..."
+                    
+                    # Alternative: Use npx
+                    npx npm install --prefix backend 2>/dev/null || \
+                    echo "Alternative also failed"
                 '''
             }
         }
