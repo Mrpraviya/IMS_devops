@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   mongo:
     image: mongo
@@ -25,5 +24,6 @@ services:
 
 volumes:
   mongo-data:
+
 
  
