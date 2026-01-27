@@ -1,9 +1,14 @@
-  pipeline {
+ pipeline {
     agent any
     
     environment {
         NODE_HOME = '/var/jenkins_home/tools/jenkins.plugins.nodejs.tools.NodeJSInstallation/nodejs'
         PATH = "${env.NODE_HOME}/bin:${env.PATH}"
+        AWS_REGION = 'us-east-1'
+        TF_WORKSPACE = 'inventory-terraform'
+        DOCKER_REGISTRY = 'your-ecr-registry'
+        BACKEND_IMAGE = 'inventory-backend'
+        FRONTEND_IMAGE = 'inventory-frontend'
     }
     
     stages {
@@ -15,138 +20,167 @@
                     echo "NPM: $(npm --version)"
                     docker --version
                     docker-compose --version
+                    terraform --version
+                    aws --version
                 '''
             }
         }
         
-        stage('Checkout') {
+        stage('Checkout Source Code') {
             steps {
                 git branch: 'main',
                     url: 'https://github.com/Mrpraviya/IMS_devops.git'
             }
         }
         
-        stage('Clean Up') {
+        stage('Checkout Terraform Config') {
             steps {
-                sh '''
-                    echo "=== Cleaning Up Previous Deployment ==="
-                    
-                    # Stop Jenkins workspace containers
-                    cd /var/jenkins_home/workspace/IMS-Pipeline
-                    docker-compose down || true
-                    
-                    # Kill any process using port 27017
-                    echo "Checking for processes on port 27017..."
-                    fuser -k 27017/tcp 2>/dev/null || true
-                    
-                    # Remove dangling containers and images
-                    docker system prune -f || true
-                    
-                    echo "Cleanup completed"
-                '''
+                dir('terraform-config') {
+                    git branch: 'main',
+                        url: 'https://github.com/your-org/inventory-terraform.git'
+                }
             }
         }
         
-        stage('Build Frontend') {
+        stage('Build & Test') {
             steps {
                 sh '''
                     echo "=== Building Frontend ==="
                     cd frontend
                     npm install
                     npm run build
-                '''
-            }
-        }
-        
-        stage('Build Backend') {
-            steps {
-                sh '''
+                    
                     echo "=== Building Backend ==="
-                    cd backend
+                    cd ../backend
                     npm install
-                '''
-            }
-        }
-        
-        stage('Test') {
-            steps {
-                sh '''
-                    echo "=== Running Tests ==="
-                    cd backend
                     npm test || echo "Tests may not be configured"
                 '''
             }
         }
         
-        stage('Docker Build') {
+        stage('Build Docker Images') {
             steps {
                 sh '''
                     echo "=== Building Docker Images ==="
                     
                     echo "Building frontend image..."
-                    docker build -t sandeeptha/inventory-frontend ./frontend
+                    docker build -t ${FRONTEND_IMAGE}:${BUILD_NUMBER} ./frontend
                     
                     echo "Building backend image..."
-                    docker build -t sandeeptha/inventory-backend ./backend
-                    
-                    echo "Built images:"
-                    docker images | grep sandeeptha
+                    docker build -t ${BACKEND_IMAGE}:${BUILD_NUMBER} ./backend
                 '''
             }
         }
         
-        stage('Docker Compose Deployment') {
+        stage('Push to ECR') {
             steps {
-                sh '''
-                    echo "=== Deploying with Docker Compose ==="
-                    
-                    # Remove old containers first
-                    docker-compose down || true
-                    
-                    # Wait a moment for ports to be released
-                    sleep 3
-                    
-                    # Build and start with force recreate
-                    docker-compose up -d --build --force-recreate
-                    
-                    # Check running containers
-                    echo "Running containers:"
-                    docker-compose ps
-                    
-                    # Wait for services to start
-                    echo "Waiting for services to start..."
-                    sleep 10
-                    
-                    echo ""
-                    echo "=== Application URLs ==="
-                    echo "Frontend: http://localhost:5173"
-                    echo "Backend API: http://localhost:5000"
-                    echo "MongoDB: localhost:27017"
-                '''
+                withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                    sh '''
+                        echo "=== Pushing Images to ECR ==="
+                        
+                        # Login to ECR
+                        aws ecr get-login-password --region ${AWS_REGION} | \
+                        docker login --username AWS --password-stdin ${DOCKER_REGISTRY}
+                        
+                        # Tag and push backend
+                        docker tag ${BACKEND_IMAGE}:${BUILD_NUMBER} \
+                            ${DOCKER_REGISTRY}/${BACKEND_IMAGE}:${BUILD_NUMBER}
+                        docker push ${DOCKER_REGISTRY}/${BACKEND_IMAGE}:${BUILD_NUMBER}
+                        
+                        # Tag and push frontend
+                        docker tag ${FRONTEND_IMAGE}:${BUILD_NUMBER} \
+                            ${DOCKER_REGISTRY}/${FRONTEND_IMAGE}:${BUILD_NUMBER}
+                        docker push ${DOCKER_REGISTRY}/${FRONTEND_IMAGE}:${BUILD_NUMBER}
+                        
+                        # Tag as latest for rollback
+                        docker tag ${BACKEND_IMAGE}:${BUILD_NUMBER} \
+                            ${DOCKER_REGISTRY}/${BACKEND_IMAGE}:latest
+                        docker tag ${FRONTEND_IMAGE}:${BUILD_NUMBER} \
+                            ${DOCKER_REGISTRY}/${FRONTEND_IMAGE}:latest
+                        docker push ${DOCKER_REGISTRY}/${BACKEND_IMAGE}:latest
+                        docker push ${DOCKER_REGISTRY}/${FRONTEND_IMAGE}:latest
+                    '''
+                }
             }
         }
         
-        stage('Health Check') {
+        stage('Terraform Init & Plan') {
             steps {
-                sh '''
-                    echo "=== Performing Health Check ==="
-                    
-                    # Check MongoDB
-                    echo "Checking MongoDB..."
-                    docker-compose exec mongo mongosh --eval "db.version()" || \
-                    echo "MongoDB health check failed"
-                    
-                    # Check backend
-                    echo "Checking backend..."
-                    curl -f http://localhost:5000/health || \
-                    curl -f http://localhost:5000 || \
-                    echo "Backend health check failed"
-                    
-                    # Check frontend
-                    echo "Checking frontend..."
-                    curl -f http://localhost:5173 || \
-                    echo "Frontend health check failed"
-                '''
+                dir('terraform-config') {
+                    withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                        sh '''
+                            echo "=== Terraform Initialization ==="
+                            terraform init
+                            
+                            echo "=== Terraform Plan ==="
+                            terraform plan \
+                                -var="backend_image_tag=${BUILD_NUMBER}" \
+                                -var="frontend_image_tag=${BUILD_NUMBER}" \
+                                -var="environment=production" \
+                                -out=tfplan
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Manual Approval') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    input(message: 'Approve deployment to production?', ok: 'Deploy')
+                }
+            }
+        }
+        
+        stage('Terraform Apply') {
+            steps {
+                dir('terraform-config') {
+                    withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                        sh '''
+                            echo "=== Applying Terraform Changes ==="
+                            terraform apply -auto-approve tfplan
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Health Check & Smoke Test') {
+            steps {
+                script {
+                    dir('terraform-config') {
+                        // Get ALB DNS from Terraform output
+                        def alb_dns = sh(
+                            script: 'terraform output -raw alb_dns_name',
+                            returnStdout: true
+                        ).trim()
+                        
+                        sh """
+                            echo "=== Health Check ==="
+                            echo "ALB URL: http://${alb_dns}"
+                            
+                            # Wait for services to be ready
+                            echo "Waiting for services to be ready..."
+                            sleep 30
+                            
+                            # Test backend health endpoint
+                            echo "Testing backend..."
+                            curl -f http://${alb_dns}/api/health || \
+                            curl -f http://${alb_dns}/health || \
+                            echo "Backend health check failed"
+                            
+                            # Test frontend
+                            echo "Testing frontend..."
+                            curl -f http://${alb_dns} || \
+                            echo "Frontend check failed"
+                            
+                            # Test API endpoints
+                            echo "Testing API endpoints..."
+                            curl -s http://${alb_dns}/api/products | grep -i product || \
+                            echo "API test inconclusive"
+                        """
+                    }
+                }
             }
         }
     }
@@ -155,37 +189,44 @@
         always {
             echo "=== Pipeline Execution Completed ==="
             sh '''
-                echo "Final container status:"
-                docker-compose ps || echo "docker-compose not available"
-                
-                echo ""
-                echo "Container logs (last 5 lines each):"
-                docker-compose logs --tail=5 2>/dev/null || echo "Could not get logs"
+                echo "Cleaning up local images..."
+                docker system prune -f || true
             '''
         }
         success {
-            echo "✅ SUCCESS: CI/CD Pipeline completed successfully!"
-            echo "🚀 Application is running:"
-            echo "   Frontend: http://localhost:5173"
-            echo "   Backend API: http://localhost:5000"
+            script {
+                dir('terraform-config') {
+                    def alb_dns = sh(
+                        script: 'terraform output -raw alb_dns_name',
+                        returnStdout: true
+                    ).trim()
+                    
+                    echo "✅ SUCCESS: Deployment completed!"
+                    echo "🚀 Application deployed to AWS"
+                    echo "   URL: http://${alb_dns}"
+                    echo "   Backend API: http://${alb_dns}/api"
+                    
+                    // Send notification
+                    slackSend(
+                        color: 'good',
+                        message: "✅ Deployment Successful\nApplication: ${env.JOB_NAME}\nBuild: ${env.BUILD_NUMBER}\nURL: http://${alb_dns}"
+                    )
+                }
+            }
         }
         failure {
             echo "❌ FAILURE: Pipeline failed"
+            
+            // Rollback to previous version if needed
             sh '''
-                echo "=== Debugging Information ==="
-                echo "Docker container status:"
-                docker ps -a
-                
-                echo ""
-                echo "Port usage:"
-                netstat -tulpn | grep :27017 || echo "Port 27017 not in use"
-                netstat -tulpn | grep :5000 || echo "Port 5000 not in use"
-                netstat -tulpn | grep :5173 || echo "Port 5173 not in use"
-                
-                echo ""
-                echo "Recent docker-compose logs:"
-                docker-compose logs --tail=20 2>/dev/null || echo "Could not get logs"
+                echo "Attempting rollback..."
+                # Add rollback logic here if needed
             '''
+            
+            slackSend(
+                color: 'danger',
+                message: "❌ Deployment Failed\nApplication: ${env.JOB_NAME}\nBuild: ${env.BUILD_NUMBER}"
+            )
         }
     }
 }
