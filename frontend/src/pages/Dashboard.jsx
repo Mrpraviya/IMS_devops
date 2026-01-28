@@ -1,63 +1,10 @@
-//  import { useEffect, useState } from "react";
-// import axios from "axios";
-// import Sidebar from "../components/Sidebar";
-
-// export default function Dashboard() {
-//   const [products, setProducts] = useState([]);
-//   const api = "http://localhost:5000/api/products";
-
-//   useEffect(() => {
-//     axios.get(api).then((r) => setProducts(r.data)).catch(() => setProducts([]));
-//   }, []);
-
-//   return (
-//     <div className="flex min-h-screen bg-gray-50">
-//       <Sidebar />
-//       <main className="flex-1 p-6">
-//         <header className="flex items-center justify-between mb-6">
-//           <h1 className="text-2xl font-bold">Dashboard</h1>
-//         </header>
-
-//         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-//           <div className="bg-white rounded-md shadow p-4">
-//             <div className="text-sm text-gray-500">Total Products</div>
-//             <div className="text-2xl font-bold">{products.length}</div>
-//           </div>
-//           <div className="bg-white rounded-md shadow p-4">
-//             <div className="text-sm text-gray-500">Total Stock</div>
-//             <div className="text-2xl font-bold">{products.reduce((s, p) => s + (p.stock || 0), 0)}</div>
-//           </div>
-//           <div className="bg-white rounded-md shadow p-4">
-//             <div className="text-sm text-gray-500">Low Stock</div>
-//             <div className="text-2xl font-bold">{products.filter((p) => (p.stock || 0) < 10).length}</div>
-//           </div>
-//         </section>
-
-//         <section className="bg-white rounded-md shadow p-4">
-//           <h2 className="font-semibold mb-4">Recent Products</h2>
-//           {products.slice(0, 5).map((p) => (
-//             <div key={p._id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-//               <div>
-//                 <div className="font-medium">{p.name}</div>
-//                 <div className="text-sm text-gray-500">{p.category}</div>
-//               </div>
-//               <div className="text-sm text-gray-700">{p.stock} in stock</div>
-//             </div>
-//           ))}
-//           {products.length === 0 && <div className="text-gray-500 p-4">No products yet</div>}
-//         </section>
-//       </main>
-//     </div>
-//   );
-// }
-
 import { useEffect, useState } from "react";
 import axios from "axios";
 import Sidebar from "../components/Sidebar";
 
 export default function Dashboard() {
   const [products, setProducts] = useState([]);
-  const api = "http://localhost:5000/api/products";
+  const api = "http://54.172.52.159:5000/api/products";
 
   useEffect(() => {
     axios

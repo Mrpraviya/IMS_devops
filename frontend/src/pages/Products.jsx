@@ -15,7 +15,7 @@ export default function Products() {
     description: "",
   });
 
-  const api = "http://localhost:5000/api/products";
+  const api = "http://54.172.52.159:5000/api/products";
 
   const fetchProducts = async () => {
     setLoading(true);

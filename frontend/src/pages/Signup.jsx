@@ -14,7 +14,7 @@ export default function Signup() {
     e.preventDefault();
     setError("");
     try {
-      await axios.post("http://localhost:5000/api/auth/signup", form);
+      await axios.post("http://54.172.52.159:5000/api/auth/signup", form);
       alert("✅ Signup successful");
       navigate("/login"); // Redirect to login
     } catch {

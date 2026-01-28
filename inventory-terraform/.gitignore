@@ -1,0 +1,26 @@
+# .gitignore
+# Terraform files
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfstate.backup
+terraform.tfvars
+*.tfvars.json
+
+# Sensitive files
+*.pem
+*.p12
+*.key
+*.cert
+.env
+secrets.auto.tfvars
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,55 @@
+version: '3.8'
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: inventory-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin123
+      - MONGO_INITDB_DATABASE=inventory
+    networks:
+      - inventory-network
+
+  backend:
+    image: ${BACKEND_IMAGE}:latest
+    container_name: inventory-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/inventory?authSource=admin
+      - PORT=5000
+      - JWT_SECRET=inventory-secret-key-2024
+    depends_on:
+      - mongodb
+    networks:
+      - inventory-network
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    image: ${FRONTEND_IMAGE}:latest
+    container_name: inventory-frontend
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5000/api
+    depends_on:
+      - backend
+    networks:
+      - inventory-network
+
+networks:
+  inventory-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
