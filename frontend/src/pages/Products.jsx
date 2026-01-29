@@ -15,7 +15,7 @@ export default function Products() {
     description: "",
   });
 
-  const api = "http://54.172.52.159:5000/api/products";
+  const api = `${import.meta.env.VITE_API_URL}/api/products`;
 
   const fetchProducts = async () => {
     setLoading(true);

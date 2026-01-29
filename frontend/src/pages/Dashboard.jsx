@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar";
 
 export default function Dashboard() {
   const [products, setProducts] = useState([]);
-  const api = "http://54.172.52.159:5000/api/products";
+  const api = `${import.meta.env.VITE_API_URL}/api/products`;
 
   useEffect(() => {
     axios

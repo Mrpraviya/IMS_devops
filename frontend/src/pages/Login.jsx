@@ -14,11 +14,11 @@ export default function Login() {
     e.preventDefault();
     setError("");
     try {
-      const res = await axios.post("http://54.172.52.159:5000/api/auth/login", form);
+      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login`, form);
       localStorage.setItem("token", res.data.token);
       alert("✅ Login successful");
       navigate("/dashboard"); // redirect to dashboard/home
-    } catch {
+    } catch (err) {
       setError("❌ Invalid credentials");
     }
   };
