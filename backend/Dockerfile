@@ -1,12 +1,4 @@
-# FROM node:18
-# WORKDIR /app
-# COPY package*.json ./
-# RUN npm install
-# COPY . .
-# EXPOSE 5000
-# CMD ["npm", "run", "dev"]
-
-FROM node:18-alpine
+ FROM node:18-alpine
 
 WORKDIR /app
 
@@ -19,6 +11,10 @@ RUN npm ci --only=production
 
 # Copy source code
 COPY . .
+
+# Copy .env file
+COPY .env .env
+
 
 # Expose port
 EXPOSE 5000
