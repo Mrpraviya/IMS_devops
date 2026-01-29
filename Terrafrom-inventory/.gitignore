@@ -1,0 +1,18 @@
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+*.tfvars
+
+# Keys
+*.pem
+inventory-key
+inventory-key.pub
+
+# Backups
+*.backup
+*.bak
+
+# OS
+.DS_Store
+
