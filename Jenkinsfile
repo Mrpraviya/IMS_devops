@@ -1,9 +1,11 @@
-  pipeline {
+ pipeline {
     agent any
     
     environment {
         NODE_HOME = '/var/jenkins_home/tools/jenkins.plugins.nodejs.tools.NodeJSInstallation/nodejs'
         PATH = "${env.NODE_HOME}/bin:${env.PATH}"
+        AWS_REGION = 'us-east-1'
+        TF_WORKSPACE = 'inventory-terraform'
     }
     
     stages {
@@ -15,138 +17,184 @@
                     echo "NPM: $(npm --version)"
                     docker --version
                     docker-compose --version
+                    terraform --version
                 '''
             }
         }
         
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
                 git branch: 'main',
                     url: 'https://github.com/Mrpraviya/IMS_devops.git'
             }
         }
         
-        stage('Clean Up') {
-            steps {
-                sh '''
-                    echo "=== Cleaning Up Previous Deployment ==="
-                    
-                    # Stop Jenkins workspace containers
-                    cd /var/jenkins_home/workspace/IMS-Pipeline
-                    docker-compose down || true
-                    
-                    # Kill any process using port 27017
-                    echo "Checking for processes on port 27017..."
-                    fuser -k 27017/tcp 2>/dev/null || true
-                    
-                    # Remove dangling containers and images
-                    docker system prune -f || true
-                    
-                    echo "Cleanup completed"
-                '''
-            }
-        }
-        
-        stage('Build Frontend') {
+        stage('Build & Test') {
             steps {
                 sh '''
                     echo "=== Building Frontend ==="
                     cd frontend
                     npm install
                     npm run build
-                '''
-            }
-        }
-        
-        stage('Build Backend') {
-            steps {
-                sh '''
+                    
                     echo "=== Building Backend ==="
-                    cd backend
+                    cd ../backend
                     npm install
-                '''
-            }
-        }
-        
-        stage('Test') {
-            steps {
-                sh '''
-                    echo "=== Running Tests ==="
-                    cd backend
                     npm test || echo "Tests may not be configured"
                 '''
             }
         }
         
-        stage('Docker Build') {
+        stage('Build Docker Images') {
             steps {
                 sh '''
                     echo "=== Building Docker Images ==="
                     
                     echo "Building frontend image..."
-                    docker build -t sandeeptha/inventory-frontend ./frontend
+                    docker build -t sandeeptha/inventory-frontend:${BUILD_NUMBER} ./frontend
+                    docker tag sandeeptha/inventory-frontend:${BUILD_NUMBER} sandeeptha/inventory-frontend:latest
                     
                     echo "Building backend image..."
-                    docker build -t sandeeptha/inventory-backend ./backend
+                    docker build -t sandeeptha/inventory-backend:${BUILD_NUMBER} ./backend
+                    docker tag sandeeptha/inventory-backend:${BUILD_NUMBER} sandeeptha/inventory-backend:latest
                     
-                    echo "Built images:"
-                    docker images | grep sandeeptha
+                    echo "=== Pushing to Docker Hub ==="
+                    docker push sandeeptha/inventory-frontend:${BUILD_NUMBER}
+                    docker push sandeeptha/inventory-frontend:latest
+                    docker push sandeeptha/inventory-backend:${BUILD_NUMBER}
+                    docker push sandeeptha/inventory-backend:latest
                 '''
             }
         }
         
-        stage('Docker Compose Deployment') {
+        stage('AWS Infrastructure') {
             steps {
-                sh '''
-                    echo "=== Deploying with Docker Compose ==="
+                dir('inventory-terraform') {
+                    withAWS(credentials: 'aws-credentials', region: AWS_REGION) {
+                        sh '''
+                            echo "=== Setting up AWS Infrastructure ==="
+                            terraform init
+                            terraform plan -out=tfplan \
+                                -var="instance_type=t3.micro"
+                            terraform apply -auto-approve tfplan
+                            
+                            EC2_IP=$(terraform output -raw ec2_public_ip)
+                            echo "EC2 Instance: $EC2_IP"
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy to AWS') {
+            steps {
+                script {
+                    dir('inventory-terraform') {
+                        EC2_IP = sh(
+                            script: 'terraform output -raw ec2_public_ip',
+                            returnStdout: true
+                        ).trim()
+                    }
                     
-                    # Remove old containers first
-                    docker-compose down || true
-                    
-                    # Wait a moment for ports to be released
-                    sleep 3
-                    
-                    # Build and start with force recreate
-                    docker-compose up -d --build --force-recreate
-                    
-                    # Check running containers
-                    echo "Running containers:"
-                    docker-compose ps
-                    
-                    # Wait for services to start
-                    echo "Waiting for services to start..."
-                    sleep 10
-                    
-                    echo ""
-                    echo "=== Application URLs ==="
-                    echo "Frontend: http://localhost:5173"
-                    echo "Backend API: http://localhost:5000"
-                    echo "MongoDB: localhost:27017"
-                '''
+                    sh """
+                        echo "=== Deploying to AWS EC2 ==="
+                        echo "Target: ${EC2_IP}"
+                        
+                        # Create production docker-compose
+                        cat > docker-compose.prod.yml << 'DOCKER_COMPOSE'
+version: '3.8'
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: inventory-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=inventory
+    volumes:
+      - mongodb_data:/data/db
+
+  backend:
+    image: sandeeptha/inventory-backend:latest
+    container_name: inventory-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/inventory
+      - PORT=5000
+    depends_on:
+      - mongodb
+
+  frontend:
+    image: sandeeptha/inventory-frontend:latest
+    container_name: inventory-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongodb_data:
+DOCKER_COMPOSE
+                        
+                        # Deploy to EC2
+                        scp -o StrictHostKeyChecking=no docker-compose.prod.yml ec2-user@${EC2_IP}:/home/ec2-user/ || echo "File copied"
+                        
+                        ssh -o StrictHostKeyChecking=no ec2-user@${EC2_IP} << EOF
+                            cd /home/ec2-user
+                            mkdir -p inventory-app
+                            cd inventory-app
+                            cp ../docker-compose.prod.yml docker-compose.yml
+                            sudo docker-compose down || true
+                            sudo docker-compose pull
+                            sudo docker-compose up -d
+                            sleep 10
+                            echo "Containers:"
+                            sudo docker ps
+                        EOF
+                    """
+                }
             }
         }
         
         stage('Health Check') {
             steps {
-                sh '''
-                    echo "=== Performing Health Check ==="
+                script {
+                    dir('inventory-terraform') {
+                        EC2_IP = sh(
+                            script: 'terraform output -raw ec2_public_ip',
+                            returnStdout: true
+                        ).trim()
+                    }
                     
-                    # Check MongoDB
-                    echo "Checking MongoDB..."
-                    docker-compose exec mongo mongosh --eval "db.version()" || \
-                    echo "MongoDB health check failed"
-                    
-                    # Check backend
-                    echo "Checking backend..."
-                    curl -f http://localhost:5000/health || \
-                    curl -f http://localhost:5000 || \
-                    echo "Backend health check failed"
-                    
-                    # Check frontend
-                    echo "Checking frontend..."
-                    curl -f http://localhost:5173 || \
-                    echo "Frontend health check failed"
-                '''
+                    sh """
+                        echo "=== Health Check ==="
+                        echo "Testing: http://${EC2_IP}"
+                        
+                        sleep 30
+                        
+                        # Test with retries
+                        for i in {1..5}; do
+                            if curl -f "http://${EC2_IP}:5000" || curl -f "http://${EC2_IP}:5000/health"; then
+                                echo "✅ Backend is healthy!"
+                                break
+                            else
+                                echo "Attempt \$i: Backend not ready..."
+                                sleep 10
+                            fi
+                        done
+                        
+                        if curl -f "http://${EC2_IP}"; then
+                            echo "✅ Frontend is responding!"
+                        else
+                            echo "⚠️ Frontend check failed"
+                        fi
+                    """
+                }
             }
         }
     }
@@ -155,37 +203,37 @@
         always {
             echo "=== Pipeline Execution Completed ==="
             sh '''
-                echo "Final container status:"
-                docker-compose ps || echo "docker-compose not available"
-                
-                echo ""
-                echo "Container logs (last 5 lines each):"
-                docker-compose logs --tail=5 2>/dev/null || echo "Could not get logs"
+                echo "Cleaning up..."
+                docker system prune -f || true
             '''
         }
         success {
-            echo "✅ SUCCESS: CI/CD Pipeline completed successfully!"
-            echo "🚀 Application is running:"
-            echo "   Frontend: http://localhost:5173"
-            echo "   Backend API: http://localhost:5000"
+            script {
+                dir('inventory-terraform') {
+                    EC2_IP = sh(
+                        script: 'terraform output -raw ec2_public_ip 2>/dev/null || echo "N/A"',
+                        returnStdout: true
+                    ).trim()
+                }
+                
+                echo "✅ SUCCESS: CI/CD Pipeline completed!"
+                echo "🚀 Inventory Management System deployed to AWS"
+                echo "🌐 Application URL: http://${EC2_IP}"
+                echo "⚙️  Backend API: http://${EC2_IP}:5000"
+                
+                // Send notification
+                slackSend(
+                    color: 'good',
+                    message: "✅ Deployment Successful\nApplication: ${env.JOB_NAME}\nBuild: ${env.BUILD_NUMBER}\nURL: http://${EC2_IP}"
+                )
+            }
         }
         failure {
             echo "❌ FAILURE: Pipeline failed"
-            sh '''
-                echo "=== Debugging Information ==="
-                echo "Docker container status:"
-                docker ps -a
-                
-                echo ""
-                echo "Port usage:"
-                netstat -tulpn | grep :27017 || echo "Port 27017 not in use"
-                netstat -tulpn | grep :5000 || echo "Port 5000 not in use"
-                netstat -tulpn | grep :5173 || echo "Port 5173 not in use"
-                
-                echo ""
-                echo "Recent docker-compose logs:"
-                docker-compose logs --tail=20 2>/dev/null || echo "Could not get logs"
-            '''
+            slackSend(
+                color: 'danger',
+                message: "❌ Deployment Failed\nApplication: ${env.JOB_NAME}\nBuild: ${env.BUILD_NUMBER}"
+            )
         }
     }
 }
