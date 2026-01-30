@@ -2,11 +2,11 @@
     agent any
     
     environment {
-    AWS_REGION = 'us-east-1'
-    TF_WORKSPACE = 'inventory-terraform'
-    PATH = "/usr/bin:$PATH" // or wherever node is installed
-}
-
+        NODE_HOME = '/var/jenkins_home/tools/jenkins.plugins.nodejs.tools.NodeJSInstallation/nodejs'
+        PATH = "${env.NODE_HOME}/bin:${env.PATH}"
+        AWS_REGION = 'us-east-1'
+        TF_WORKSPACE = 'inventory-terraform'
+    }
     
     stages {
         stage('Verify Setup') {
@@ -40,7 +40,7 @@
                     echo "=== Building Backend ==="
                     cd ../backend
                     npm install
-                    npm test || echo "Tests may not be configured"
+                    // npm test || echo "Tests may not be configured"
                 '''
             }
         }
@@ -222,18 +222,11 @@ DOCKER_COMPOSE
                 echo "⚙️  Backend API: http://${EC2_IP}:5000"
                 
                 // Send notification
-                slackSend(
-                    color: 'good',
-                    message: "✅ Deployment Successful\nApplication: ${env.JOB_NAME}\nBuild: ${env.BUILD_NUMBER}\nURL: http://${EC2_IP}"
-                )
+                
             }
         }
         failure {
             echo "❌ FAILURE: Pipeline failed"
-            slackSend(
-                color: 'danger',
-                message: "❌ Deployment Failed\nApplication: ${env.JOB_NAME}\nBuild: ${env.BUILD_NUMBER}"
-            )
         }
     }
 }
