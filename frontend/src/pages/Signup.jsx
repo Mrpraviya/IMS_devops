@@ -112,7 +112,6 @@
 //   );
 // }
 
-
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -129,17 +128,19 @@ export default function Signup() {
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError("");
-  try {
-    await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/signup`, form);
-    alert("✅ Signup successful");
-    navigate("/login"); // redirect after signup
-  } catch (err) {
-    setError("❌ Signup failed");
-  }
-};
-
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await axios.post(`${API_URL}/api/auth/signup`, form);
+      alert("✅ Signup successful");
+      navigate("/login");
+    } catch (err) {
+      setError(err.response?.data?.error || "❌ Signup failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-r from-green-500 via-emerald-600 to-gray-900">
@@ -206,7 +207,9 @@ export default function Signup() {
             type="submit"
             disabled={loading}
             className={`w-full ${
-              loading ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700"
             } text-white py-2 rounded-lg shadow-md transition-all duration-300`}
           >
             {loading ? "Signing up..." : "Sign Up"}

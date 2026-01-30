@@ -33,7 +33,13 @@ import cors from "cors";
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://54.172.52.159",    // frontend public URL
+    "http://localhost:3000"     // optional for local dev
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // MongoDB connection

@@ -13,13 +13,16 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login`, form);
+      const res = await axios.post(`${API_URL}/api/auth/login`, form);
       localStorage.setItem("token", res.data.token);
       alert("✅ Login successful");
-      navigate("/dashboard"); // redirect to dashboard/home
+      navigate("/dashboard");
     } catch (err) {
-      setError("❌ Invalid credentials");
+      setError(err.response?.data?.error || "❌ Invalid credentials");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -30,7 +33,9 @@ export default function Login() {
       </h1>
 
       <div className="w-96 bg-white/20 backdrop-blur-lg shadow-2xl rounded-2xl p-8 border border-white/30">
-        <h2 className="text-3xl font-bold text-center text-white mb-6">Login</h2>
+        <h2 className="text-3xl font-bold text-center text-white mb-6">
+          Login
+        </h2>
 
         {error && (
           <div className="bg-red-500/80 text-white p-3 mb-4 rounded-lg text-sm shadow-md text-center">
@@ -52,7 +57,9 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-gray-100 text-sm mb-1">Password :</label>
+            <label className="block text-gray-100 text-sm mb-1">
+              Password :
+            </label>
             <input
               type="password"
               name="password"
@@ -81,4 +88,3 @@ export default function Login() {
     </div>
   );
 }
-
