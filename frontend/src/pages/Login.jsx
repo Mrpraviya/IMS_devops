@@ -3,8 +3,11 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {
+  const API_URL = import.meta.env.VITE_API_URL || "http://54.144.116.87:5000";
+  
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);  // ADD THIS
   const navigate = useNavigate();
 
   const handleChange = (e) =>

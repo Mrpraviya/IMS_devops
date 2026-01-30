@@ -9,7 +9,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-   const API_URL = "http://54.144.116.87:5000/api";
+   const API_URL = import.meta.env.VITE_API_URL || "http://54.144.116.87:5000";
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });

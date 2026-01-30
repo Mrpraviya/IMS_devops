@@ -18,16 +18,21 @@
       MONGO_URI: mongodb://ims-mongodb:27017/ims-db
       PORT: 5000
     ports:
-      - "5000:5000"   # <-- MUST be here
+      - "5000:5000"
     networks:
       - inventory-net
     depends_on:
       - mongo
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://54.144.116.87:5000  # ADD THIS
     container_name: inventory-frontend
     restart: always
+    ports:
+      - "80:80"  # ADD THIS - expose frontend
     networks:
       - inventory-net
     depends_on:
