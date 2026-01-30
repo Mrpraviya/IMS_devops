@@ -2,11 +2,11 @@
     agent any
     
     environment {
-        NODE_HOME = '/var/jenkins_home/tools/jenkins.plugins.nodejs.tools.NodeJSInstallation/nodejs'
-        PATH = "${env.NODE_HOME}/bin:${env.PATH}"
-        AWS_REGION = 'us-east-1'
-        TF_WORKSPACE = 'inventory-terraform'
-    }
+    AWS_REGION = 'us-east-1'
+    TF_WORKSPACE = 'inventory-terraform'
+    PATH = "/usr/bin:$PATH" // or wherever node is installed
+}
+
     
     stages {
         stage('Verify Setup') {
