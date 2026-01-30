@@ -1,4 +1,4 @@
- version: '3.8'
+ version: "3.8"
 
  services:
   mongo:
@@ -11,44 +11,26 @@
       - inventory-net
 
   backend:
-  build:
-    context: ./backend
-  container_name: inventory-backend
-  restart: always
-  environment:
-    NODE_ENV: production
-    MONGO_URI: mongodb://ims-mongodb:27017/ims-db
-    PORT: 5000
-  ports:
-    - "5000:5000"   # <-- change here
-  networks:
-    - inventory-net
-  depends_on:
-    - mongo
-
+    build: ./backend
+    container_name: inventory-backend
+    restart: always
+    environment:
+      MONGO_URI: mongodb://ims-mongodb:27017/ims-db
+      PORT: 5000
+    ports:
+      - "5000:5000"   # <-- MUST be here
+    networks:
+      - inventory-net
+    depends_on:
+      - mongo
 
   frontend:
-    build:
-      context: ./frontend
+    build: ./frontend
     container_name: inventory-frontend
     restart: always
     networks:
       - inventory-net
     depends_on:
-      - backend
-
-  nginx:
-    image: nginx:alpine
-    container_name: inventory-nginx
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./frontend/build:/usr/share/nginx/html:ro
-    ports:
-      - "80:80"   # public port
-    networks:
-      - inventory-net
-    depends_on:
-      - frontend
       - backend
 
  networks:
