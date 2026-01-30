@@ -129,25 +129,17 @@ export default function Signup() {
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  e.preventDefault();
+  setError("");
+  try {
+    await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/signup`, form);
+    alert("✅ Signup successful");
+    navigate("/login"); // redirect after signup
+  } catch (err) {
+    setError("❌ Signup failed");
+  }
+};
 
-    try {
-      const res = await axios.post(`${API_URL}/api/auth/signup`, form);
-      alert("✅ Signup successful");
-      navigate("/login"); // Redirect to login
-    } catch (err) {
-      console.error(err);
-      if (err.response && err.response.data && err.response.data.error) {
-        setError(err.response.data.error); // show backend message
-      } else {
-        setError("❌ Signup failed");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-r from-green-500 via-emerald-600 to-gray-900">

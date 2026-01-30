@@ -1,38 +1,44 @@
- version: '3.8'
+ # docker-compose.yml
+version: '3.8'
 
- services:
+services:
   mongo:
     image: mongo:8
     container_name: ims-mongodb
     restart: always
     ports:
-      - "27017:27017"     # expose for host access
+      - "27017:27017"     # expose to host for testing
     networks:
       - inventory-net
     volumes:
       - mongo-data:/data/db
 
   backend:
-    image: sandeeptha/inventoryms-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: inventory-backend
     restart: always
     environment:
       - NODE_ENV=production
       - MONGO_URI=mongodb://ims-mongodb:27017/ims-db
       - PORT=5000
+      - JWT_SECRET=Sp1031inventory
     ports:
-      - "5000:5000"
+      - "5000:5000"        # public port mapping
     networks:
       - inventory-net
     depends_on:
       - mongo
 
   frontend:
-    image: sandeeptha/inventoryms-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: inventory-frontend
     restart: always
     environment:
-      - VITE_API_URL=http://54.172.52.159:5000    # public IP for frontend
+      - VITE_API_URL=http://localhost:5000   # call backend via mapped port
     ports:
       - "3000:5173"
     networks:
@@ -40,9 +46,9 @@
     depends_on:
       - backend
 
- networks:
+networks:
   inventory-net:
     driver: bridge
 
- volumes:
+volumes:
   mongo-data:

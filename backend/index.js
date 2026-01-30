@@ -25,39 +25,26 @@
 // const PORT = process.env.PORT || 5000;
 // app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
-
-import express from "express";
+ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
-import authRoutes from "./routes/auth.js";
-import productsRoutes from "./routes/products.js";
 
 dotenv.config();
 
 const app = express();
-app.use(express.json());
 app.use(cors());
+app.use(express.json());
 
-// Async startup function
-const startServer = async () => {
-  try {
-    // Await MongoDB connection
-    const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/ims-db";
-    await mongoose.connect(mongoUri);
-    console.log("✅ MongoDB connected");
+// MongoDB connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-    // Routes after DB connection
+// Routes
+import authRoutes from "./routes/auth.js";
+app.use("/api/auth", authRoutes);
 
-    app.use("/api/auth", authRoutes);
-    app.use("/api/products", productsRoutes);
-
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-  } catch (err) {
-    console.error("❌ Server startup error:", err);
-  }
-};
-
-// Start everything
-startServer();
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
