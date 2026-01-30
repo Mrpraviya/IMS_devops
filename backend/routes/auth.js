@@ -1,11 +1,13 @@
- import express from "express";
+import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js"; // ensure your User model exists at this path
 
+
 const router = express.Router();
 
 // Signup
+console.log("Signup request body:", req.body);
 router.post("/signup", async (req, res) => {
   try {
     const { username, email, password } = req.body;
