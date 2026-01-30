@@ -1,30 +1,78 @@
+# services:
+#   mongo:
+#     image: mongo
+#     restart: always
+#     ports:
+#       - "27018:27017"
+#     volumes:
+#       - mongo-data:/data/db
+
+#   backend:
+#     build: ./backend
+#     ports:
+#       - "5000:5000"
+#     env_file: ./backend/.env
+#     depends_on:
+#       - mongo
+
+#   frontend:
+#     build: ./frontend
+#     ports:
+#       - "5173:5173"
+#     depends_on:
+#       - backend
+
+# volumes:
+#   mongo-data:
+
+version: '3.8'
+
 services:
   mongo:
-    image: mongo
+    image: mongo:8
+    container_name: ims-mongodb
     restart: always
     ports:
-      - "27018:27017"
+      - "27017:27017"
+    networks:
+      - inventory-net
     volumes:
       - mongo-data:/data/db
 
   backend:
-    build: ./backend
+    image: sandeeptha/inventoryms-backend:latest
+    container_name: inventory-backend
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=mongodb://ims-mongodb:27017/ims-db
+      - PORT=5000
     ports:
       - "5000:5000"
-    env_file: ./backend/.env
+    networks:
+      - inventory-net
     depends_on:
       - mongo
 
   frontend:
-    build: ./frontend
+    image: sandeeptha/inventoryms-frontend:latest
+    container_name: inventory-frontend
+    restart: always
+    environment:
+      - VITE_API_URL=http://localhost:5000
     ports:
-      - "5173:5173"
+      - "3000:5173"
+    networks:
+      - inventory-net
     depends_on:
       - backend
 
+networks:
+  inventory-net:
+    driver: bridge
+
 volumes:
   mongo-data:
-
 
  
 
