@@ -19,9 +19,8 @@ COPY .env .env
 # Expose port
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node healthcheck.js || exit 1
+COPY wait-for-mongo.sh /wait-for-mongo.sh
+RUN chmod +x /wait-for-mongo.sh
 
 # Start command
-CMD ["npm", "start"]
+CMD ["/wait-for-mongo.sh", "ims-mongodb", "npm", "run", "start"]

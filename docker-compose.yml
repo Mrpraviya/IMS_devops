@@ -1,13 +1,12 @@
- 
-version: '3.8'
+ version: '3.8'
 
-services:
+ services:
   mongo:
     image: mongo:8
     container_name: ims-mongodb
     restart: always
     ports:
-      - "27017:27017"
+      - "27017:27017"     # expose for host access
     networks:
       - inventory-net
     volumes:
@@ -33,7 +32,7 @@ services:
     container_name: inventory-frontend
     restart: always
     environment:
-      - VITE_API_URL=http://http://54.172.52.159:5000
+      - VITE_API_URL=http://54.172.52.159:5000    # public IP for frontend
     ports:
       - "3000:5173"
     networks:
@@ -41,12 +40,9 @@ services:
     depends_on:
       - backend
 
-networks:
+ networks:
   inventory-net:
     driver: bridge
 
-volumes:
+ volumes:
   mongo-data:
-
- 
-
