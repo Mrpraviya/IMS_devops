@@ -1,22 +1,22 @@
-# backend/Dockerfile
-FROM node:18-alpine
+ FROM node:18-alpine
 
+# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Install only production dependencies
 RUN npm ci --only=production
 
-# Copy source code
+# Install curl for testing inside container
+RUN apk add --no-cache curl
+
+# Copy the rest of the application
 COPY . .
 
-# Copy .env (optional: could also pass via docker-compose)
+# Copy environment variables
 COPY .env .env
 
-# Expose backend port
-EXPOSE 5000
-
-# Start server
+# Start the backend
 CMD ["node", "index.js"]
+
+
