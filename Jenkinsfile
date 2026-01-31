@@ -1,83 +1,92 @@
 pipeline {
     agent any
-    
+
     environment {
-        DOCKER_IMAGE_BACKEND = 'ims-backend'
-        DOCKER_IMAGE_FRONTEND = 'ims-frontend'
+        // Docker Compose project name (optional)
         COMPOSE_PROJECT_NAME = 'ims_devops'
     }
-    
+
     stages {
-        stage('Checkout') {
+
+        stage('Checkout SCM') {
             steps {
-                echo '🔄 Pulling latest code from GitHub...'
+                echo "🔄 Pulling latest code from GitHub..."
                 checkout scm
             }
         }
-        
+
         stage('Build') {
             steps {
-                echo '🏗️ Building Docker images...'
+                echo "🏗️ Building Docker images..."
                 sh 'docker-compose build --no-cache'
             }
         }
-        
+
         stage('Test') {
             steps {
-                echo '🧪 Running tests...'
+                echo "🧪 Running tests..."
+
+                // Start containers
+                sh 'docker-compose up -d'
+
+                // Wait for backend to be healthy
                 sh '''
-                    echo "Starting containers for testing..."
-                    docker-compose up -d
-                    sleep 10
-                    
-                    echo "Testing backend API..."
-                    curl -f http://localhost:5000/api/products || exit 1
-                    
-                    echo "✅ Tests passed!"
+                echo "⏳ Waiting for backend to be ready..."
+                for i in $(seq 1 20); do
+                    if docker-compose exec -T backend curl -f http://backend:5000/api/products >/dev/null 2>&1; then
+                        echo "✅ Backend is ready!"
+                        break
+                    fi
+                    echo "Waiting... ($i)"
+                    sleep 3
+                done
+                '''
+
+                // Run actual API test
+                sh '''
+                echo "🔍 Testing backend API..."
+                docker-compose exec -T backend curl -f http://backend:5000/api/products || exit 1
                 '''
             }
         }
-        
+
         stage('Deploy') {
+            when {
+                expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+            }
             steps {
-                echo '🚀 Deploying application...'
-                sh '''
-                    docker-compose down
-                    docker-compose up -d
-                    docker-compose ps
-                '''
+                echo "🚀 Deploying containers..."
+                sh 'docker-compose up -d'
             }
         }
-        
+
         stage('Verify Deployment') {
+            when {
+                expression { currentBuild.resultIsBetterOrEqualTo('SUCCESS') }
+            }
             steps {
-                echo '✔️ Verifying deployment...'
+                echo "🔎 Verifying deployment..."
                 sh '''
-                    sleep 5
-                    
-                    echo "Testing backend via nginx proxy..."
-                    curl -f http://localhost/api/products || exit 1
-                    
-                    echo "Testing frontend..."
-                    curl -f http://localhost/ | grep -q "S&P Inventory" || exit 1
-                    
-                    echo "✅ Deployment successful!"
+                docker-compose exec -T backend curl -f http://backend:5000/api/products || exit 1
+                docker-compose exec -T frontend curl -f http://frontend:80 || exit 1
                 '''
             }
         }
     }
-    
+
     post {
-        success {
-            echo '✅ Pipeline completed successfully!'
-        }
-        failure {
-            echo '❌ Pipeline failed!'
-            sh 'docker-compose logs --tail=50'
-        }
         always {
-            echo '🧹 Cleaning up unused Docker resources...'
+            echo "🧹 Cleaning up unused Docker resources..."
             sh 'docker system prune -f'
+        }
+
+        success {
+            echo "✅ Pipeline completed successfully!"
+        }
+
+        failure {
+            echo "❌ Pipeline failed!"
+            sh 'docker-compose logs --tail=50'
         }
     }
 }
