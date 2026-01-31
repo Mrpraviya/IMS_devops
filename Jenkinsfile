@@ -22,33 +22,31 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                echo "🧪 Running tests..."
+         stage('Test') {
+    steps {
+        echo "🧪 Running backend API tests..."
+        
+        // Start containers if not already running
+        sh 'docker-compose up -d'
 
-                // Start containers
-                sh 'docker-compose up -d'
-
-                // Wait for backend to be healthy
-                sh '''
-                echo "⏳ Waiting for backend to be ready..."
-                for i in $(seq 1 20); do
-                    if docker-compose exec -T backend curl -f http://backend:5000/api/products >/dev/null 2>&1; then
-                        echo "✅ Backend is ready!"
-                        break
-                    fi
-                    echo "Waiting... ($i)"
-                    sleep 3
-                done
-                '''
-
-                // Run actual API test
-                sh '''
-                echo "🔍 Testing backend API..."
-                docker-compose exec -T backend curl -f http://backend:5000/api/products || exit 1
-                '''
-            }
-        }
+        // Wait for backend to be ready
+        sh '''
+        echo "⏳ Waiting for backend to be ready..."
+        for i in $(seq 1 20); do
+            if docker-compose exec -T backend curl -f http://backend:5000/api/products; then
+                echo "✅ Backend is ready!"
+                break
+            else
+                echo "Waiting... ($i)"
+                sleep 3
+            fi
+        done
+        '''
+        
+        // Final API check
+        sh 'docker-compose exec -T backend curl -f http://backend:5000/api/products'
+    }
+}
 
         stage('Deploy') {
             when {
