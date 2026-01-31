@@ -2,9 +2,12 @@ import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
+const API_URL = "/api";
+
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) =>
@@ -15,7 +18,7 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const res = await axios.post(`${API_URL}/api/auth/login`, form);
+      const res = await axios.post(`${API_URL}/auth/login`, form);
       localStorage.setItem("token", res.data.token);
       alert("✅ Login successful");
       navigate("/dashboard");
@@ -71,11 +74,16 @@ export default function Login() {
           </div>
 
           <button
-            type="submit"
-            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg shadow-md transition-all duration-300"
-          >
-            Login
-          </button>
+  type="submit"
+  disabled={loading}
+  className={`w-full ${
+    loading
+      ? "bg-gray-400 cursor-not-allowed"
+      : "bg-green-600 hover:bg-green-700"
+  } text-white py-2 rounded-lg shadow-md transition-all duration-300`}
+>
+  {loading ? "Logging in..." : "Login"}
+</button>
         </form>
 
         <p className="text-gray-200 text-sm text-center mt-6">

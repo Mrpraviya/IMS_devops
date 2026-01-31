@@ -1,46 +1,38 @@
-// import express from "express";
-// import mongoose from "mongoose";
-// import dotenv from "dotenv";
-// import cors from "cors";
-
-// dotenv.config(); // ...existing code...
-// const app = express();
-// app.use(express.json());
-// app.use(cors());
-
-// // MongoDB connection
-// const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/ims-db";
-// mongoose
-//   .connect(mongoUri)
-//   .then(() => console.log("✅ MongoDB connected"))
-//   .catch((err) => console.error('❌ MongoDB connection error:', err));
-
-// // Routes
-// import authRoutes from "./routes/auth.js";
-// import productsRoutes from "./routes/products.js"; // new
-
-// app.use("/api/auth", authRoutes);
-// app.use("/api/products", productsRoutes); // new
-
-// const PORT = process.env.PORT || 5000;
-// app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-
- import express from "express";
+import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 
+import authRoutes from "./routes/auth.js";
+import productsRoutes from "./routes/products.js";
+
 dotenv.config();
 
-const app = express();
+const app = express();   // ✅ app FIRST
+
+// CORS configuration
 app.use(cors({
-  origin: [
-    "http://54.172.52.159",    // frontend public URL
-    "http://localhost:3000"     // optional for local dev
-  ],
-  credentials: true
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      "http://54.144.116.87",
+      "http://localhost:3000",
+      "http://localhost"
+    ];
+
+    callback(null, true); // allow all for now
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.use(express.json());
+
+// ✅ Routes AFTER app is created
+app.use("/api/auth", authRoutes);
+app.use("/api/products", productsRoutes);
 
 // MongoDB connection
 mongoose
@@ -48,9 +40,8 @@ mongoose
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// Routes
-import authRoutes from "./routes/auth.js";
-app.use("/api/auth", authRoutes);
-
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () =>
+  console.log(`🚀 Server running on port ${PORT}`)
+);
+

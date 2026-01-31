@@ -4,14 +4,36 @@ import Sidebar from "../components/Sidebar";
 
 export default function Dashboard() {
   const [products, setProducts] = useState([]);
-  const api = `${import.meta.env.VITE_API_URL}/api/products`;
+  const [loading, setLoading] = useState(true);
+
+  const API_URL = "/api";
 
   useEffect(() => {
-    axios
-      .get(api)
-      .then((r) => setProducts(r.data))
-      .catch(() => setProducts([]));
+    const fetchProducts = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/products`);
+        if (Array.isArray(res.data)) {
+          setProducts(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch products:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen bg-gradient-to-br from-green-500 via-emerald-600 to-gray-900 text-white">
+        <Sidebar />
+        <main className="flex-1 flex items-center justify-center">
+          <p className="text-2xl font-semibold">⏳ Loading Dashboard...</p>
+        </main>
+      </div>
+    );
+  }
 
   const totalStock = products.reduce((s, p) => s + (p.stock || 0), 0);
   const lowStock = products.filter((p) => (p.stock || 0) < 10).length;
@@ -19,9 +41,7 @@ export default function Dashboard() {
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-green-500 via-emerald-600 to-gray-900 text-white">
       <Sidebar />
-
       <main className="flex-1 p-8 relative">
-        {/* Header */}
         <header className="flex items-center justify-between mb-10">
           <h1 className="text-4xl font-extrabold tracking-wide drop-shadow-md">
             📊 Dashboard
@@ -31,30 +51,25 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Stats Cards */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
           <div className="bg-white/15 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20 hover:scale-105 transition-transform duration-300">
             <div className="text-sm text-gray-200 mb-2">Total Products</div>
             <div className="text-4xl font-bold text-white">{products.length}</div>
           </div>
-
           <div className="bg-white/15 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20 hover:scale-105 transition-transform duration-300">
             <div className="text-sm text-gray-200 mb-2">Total Stock</div>
             <div className="text-4xl font-bold text-white">{totalStock}</div>
           </div>
-
           <div className="bg-white/15 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20 hover:scale-105 transition-transform duration-300">
             <div className="text-sm text-gray-200 mb-2">Low Stock</div>
             <div className="text-4xl font-bold text-red-300">{lowStock}</div>
           </div>
         </section>
 
-        {/* Recent Products */}
         <section className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20 p-6">
           <h2 className="text-2xl font-semibold mb-6 text-green-100">
             🛒 Recent Products
           </h2>
-
           {products.length === 0 ? (
             <div className="text-gray-300 text-center p-6 text-lg">
               No products yet 🚫
