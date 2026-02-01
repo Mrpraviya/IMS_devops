@@ -1,4 +1,4 @@
-pipeline {
+ pipeline {
     agent any
     environment {
         COMPOSE_PROJECT_NAME = 'ims_devops'
@@ -10,48 +10,52 @@ pipeline {
                 checkout scm
             }
         }
+
         stage('Build') {
             steps {
                 echo "🏗️ Building Docker images..."
-                // Only build if not already built
-                sh 'docker compose build'
+                sh 'docker-compose build'
             }
         }
+
         stage('Test') {
             steps {
                 echo "🧪 Running tests..."
-                sh 'docker compose up -d'
+                sh 'docker-compose up -d'
                 sh '''
                 echo "⏳ Waiting for backend..."
                 for i in $(seq 1 15); do
-                    if docker compose exec -T backend curl -f http://backend:5000/api/products 2>/dev/null; then
+                    if docker-compose exec -T backend curl -f http://backend:5000/api/products >/dev/null 2>&1; then
                         echo "✅ Backend ready!"
-                        break
+                        exit 0
                     fi
                     echo "Waiting... ($i)"
                     sleep 2
                 done
+                exit 1
                 '''
-                sh 'docker compose exec -T backend curl -f http://backend:5000/api/products'
             }
         }
+
         stage('Deploy') {
             steps {
                 echo "🚀 Deploying..."
-                sh 'docker compose up -d'
+                sh 'docker-compose up -d'
             }
         }
+
         stage('Verify') {
             steps {
                 echo "🔎 Verifying..."
                 sh '''
-                docker compose exec -T backend curl -f http://backend:5000/api/products || exit 1
-                docker compose exec -T frontend curl -f http://frontend:80 || exit 1
+                docker-compose exec -T backend curl -f http://backend:5000/api/products
+                docker-compose exec -T frontend curl -f http://frontend
                 echo "✅ Deployment successful!"
                 '''
             }
         }
     }
+
     post {
         always {
             echo "🧹 Cleaning up..."
@@ -62,7 +66,7 @@ pipeline {
         }
         failure {
             echo "❌ Pipeline failed!"
-            sh 'docker compose logs --tail=20'
+            sh 'docker-compose logs'
         }
     }
 }
