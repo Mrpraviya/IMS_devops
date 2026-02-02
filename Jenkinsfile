@@ -21,7 +21,7 @@
             cd ~/IMS_devops
             git fetch origin
             git reset --hard origin/main
-            docker-compose down
+            docker-compose pull
             docker-compose up -d --build
         EOF
         '''
