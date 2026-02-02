@@ -1,5 +1,7 @@
 FROM node:20-alpine AS build
 
+ENV CI=true
+
 WORKDIR /app
 
 COPY package*.json ./
