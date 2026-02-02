@@ -14,19 +14,20 @@
             }
         }
         
-     stage('Deploy to Production') {
+stage('Deploy to Production') {
     steps {
         sh '''
-        ssh -o StrictHostKeyChecking=no ubuntu@54.144.116.87 << 'EOF'
+        ssh -o StrictHostKeyChecking=no ubuntu@54.144.116.87 "
+            set -e
             cd ~/IMS_devops
-            git fetch origin
-            git reset --hard origin/main
+            git pull origin main
             docker-compose pull
             docker-compose up -d --build
-        EOF
+        "
         '''
     }
 }
+
 
         stage('Verify Deployment') {
             steps {
