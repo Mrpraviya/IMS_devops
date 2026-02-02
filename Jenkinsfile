@@ -1,6 +1,11 @@
  pipeline {
     agent any
-
+    
+    environment {
+        DEPLOY_SERVER = '54.144.116.87'
+        DEPLOY_USER = 'ubuntu'
+    }
+    
     stages {
         stage('Checkout') {
             steps {
@@ -8,40 +13,42 @@
                 checkout scm
             }
         }
-
-        stage('Build') {
+        
+        stage('Deploy to Production') {
             steps {
-                echo '🏗️ Building Docker images...'
-                sh 'docker compose build'
+                echo '🚀 Deploying to production server...'
+                sh '''
+                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} << 'ENDSSH'
+                        cd ~/IMS_devops
+                        git pull origin main
+                        docker-compose build
+                        docker-compose up -d
+                        docker-compose ps
+ENDSSH
+                '''
             }
         }
-
-        stage('Deploy') {
+        
+        stage('Verify Deployment') {
             steps {
-                echo '🚀 Deploying application...'
-                sh 'docker compose up -d'
-            }
-        }
-
-        stage('Verify') {
-            steps {
-                echo '🔍 Verifying backend API...'
-                sh 'curl -f http://localhost:5000/api/products'
+                echo '🔍 Verifying deployment...'
+                sh '''
+                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} << 'ENDSSH'
+                        curl -f http://localhost:5000/api/products
+                        curl -f http://localhost/api/products
+                        echo "✅ Deployment verified!"
+ENDSSH
+                '''
             }
         }
     }
-
+    
     post {
-        always {
-            echo '🧹 Cleaning up...'
-            sh 'docker system prune -f || true'
+        success {
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
             echo '❌ Pipeline failed!'
-            sh 'docker compose logs || true'
-        }
-        success {
-            echo '✅ Pipeline completed successfully!'
         }
     }
 }
