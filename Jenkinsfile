@@ -21,8 +21,8 @@ stage('Deploy to Production') {
             set -e
             cd ~/IMS_devops
             git pull origin main
-            docker-compose pull
-            docker-compose up -d --build
+            docker compose pull
+            docker compose up -d --build
         "
         '''
     }
