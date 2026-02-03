@@ -15,7 +15,7 @@ export default function Products() {
     description: "",
   });
 
-  const api = `${import.meta.env.VITE_API_URL}/products`;
+  const api = `/api/products`;
 
   const fetchProducts = async () => {
     setLoading(true);
