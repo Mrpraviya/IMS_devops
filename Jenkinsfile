@@ -13,6 +13,16 @@
                 checkout scm
             }
         }
+     stage('Cleanup Docker') {
+    steps {
+        sh '''
+        ssh ubuntu@54.144.116.87 << EOF
+        docker system prune -a -f
+        EOF
+        '''
+    }
+}
+
         
 stage('Deploy to Production') {
     steps {
