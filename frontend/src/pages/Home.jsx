@@ -35,7 +35,7 @@ export default function Home() {
         className="flex flex-col justify-center items-center flex-grow text-center px-6 z-10"
       >
         <h2 className="text-6xl font-extrabold mb-6 drop-shadow-lg">
-         S & P Inventory Management System 
+        Inventory Management System 
         </h2>
         <p className="text-lg md:text-xl mb-8 text-gray-200 max-w-2xl mx-auto leading-relaxed">
           Track stock, manage products, and monitor sales effortlessly with an
@@ -50,4 +50,5 @@ export default function Home() {
     </div>
   );
 }
+
  
